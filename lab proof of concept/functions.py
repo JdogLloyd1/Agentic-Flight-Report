@@ -1,0 +1,219 @@
+# functions.py
+# Function Calling Helper Functions
+# Pairs with functions.R
+# Tim Fraser
+
+# This script contains functions used for multi-agent orchestration with function calling in Python.
+
+# 0. SETUP ###################################
+
+## 0.1 Load Packages #################################
+
+import os
+from pathlib import Path
+
+import requests  # for HTTP requests
+import json      # for working with JSON
+import pandas as pd  # for data manipulation
+import sys       # for looking up caller-defined tool functions
+import ast       # for safely parsing Python-like dict strings
+
+# If you haven't already, install these packages...
+# pip install requests pandas
+
+## 0.2 Configuration #################################
+
+
+def load_env_file(path: Path) -> None:
+    """Load KEY=VALUE lines into os.environ when the key is not already set."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+# Repo root .env (two levels up from this file: lab proof of concept -> repo)
+_REPO_ENV = Path(__file__).resolve().parent.parent / ".env"
+load_env_file(_REPO_ENV)
+
+PORT = 11434
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY")
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST") or (
+    "https://ollama.com" if OLLAMA_API_KEY else f"http://localhost:{PORT}"
+)
+CHAT_URL = f"{OLLAMA_HOST.rstrip('/')}/api/chat"
+OLLAMA_HEADERS = (
+    {"Authorization": f"Bearer {OLLAMA_API_KEY}"} if OLLAMA_API_KEY else {}
+)
+
+# Cloud defaults to a small general model; local keeps the original default unless OLLAMA_MODEL is set.
+if os.environ.get("OLLAMA_MODEL"):
+    DEFAULT_MODEL = os.environ["OLLAMA_MODEL"]
+elif OLLAMA_API_KEY:
+    # Must match a model your API key can run on ollama.com (see /api/tags). Override via OLLAMA_MODEL.
+    DEFAULT_MODEL = "gemma3:12b"
+else:
+    DEFAULT_MODEL = "smollm2:1.7b"
+
+# 1. AGENT FUNCTION ###################################
+
+def agent(messages, model=DEFAULT_MODEL, output="text", tools=None, all=False):
+    """
+    Agent wrapper function that runs a single agent, with or without tools.
+    
+    Parameters:
+    -----------
+    messages : list
+        List of message dictionaries with 'role' and 'content' keys.
+        Must follow format: [{"role": "system", "content": "..."}, ...]
+    model : str
+        The model to be used for the agent (default: "smollm2:1.7b")
+    output : str
+        The output format (default: "text")
+    tools : list, optional
+        List of tool metadata dictionaries for function calling
+    all : bool
+        If True, return all responses. If False, return only the last response.
+    
+    Returns:
+    --------
+    str or list
+        The agent's response(s)
+    """
+    
+    # If the agent has NO tools, perform a standard chat
+    if tools is None:
+        body = {
+            "model": model,
+            "messages": messages,
+            "stream": False
+        }
+        
+        response = requests.post(CHAT_URL, json=body, headers=OLLAMA_HEADERS, timeout=120)
+        response.raise_for_status()
+        result = response.json()
+        
+        return result["message"]["content"]
+    else:
+        # If the agent has tools, perform a tool call
+        body = {
+            "model": model,
+            "messages": messages,
+            "tools": tools,
+            "stream": False
+        }
+        
+        response = requests.post(CHAT_URL, json=body, headers=OLLAMA_HEADERS, timeout=120)
+        response.raise_for_status()
+        result = response.json()
+        
+        # For any given tool call, execute the tool call
+        if "tool_calls" in result.get("message", {}):
+            tool_calls = result["message"]["tool_calls"]
+            for tool_call in tool_calls:
+                # Execute the tool function
+                # Note: Tool functions must be defined in the global scope
+                func_name = tool_call["function"]["name"]
+                raw_args = tool_call["function"].get("arguments", {})
+                # Ollama may return tool arguments either as a JSON string or as an already-parsed dict.
+                # Normalize both formats so do.call-style execution is consistent.
+                func_args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                if not isinstance(func_args, dict):
+                    func_args = {}
+                # Coerce common tabular payloads for tools that expect a DataFrame argument.
+                # This helps when a model returns df as a dict/list/JSON-string instead of a DataFrame object.
+                if isinstance(func_args, dict) and "df" in func_args and not isinstance(func_args["df"], pd.DataFrame):
+                    df_value = func_args["df"]
+                    if isinstance(df_value, str):
+                        try:
+                            parsed_df = json.loads(df_value)
+                        except json.JSONDecodeError:
+                            parsed_df = ast.literal_eval(df_value)
+                        func_args["df"] = pd.DataFrame(parsed_df)
+                    elif isinstance(df_value, (dict, list)):
+                        func_args["df"] = pd.DataFrame(df_value)
+                
+                # Get the function from the caller script first, then fall back to this module.
+                # This matches usage in 03_agents_with_function_calling.py where tools are defined there.
+                caller_globals = vars(sys.modules.get("__main__")) if sys.modules.get("__main__") else {}
+                func = caller_globals.get(func_name) or globals().get(func_name)
+                if func:
+                    tool_output = func(**func_args)
+                    tool_call["output"] = tool_output
+        
+        if all:
+            return result
+        else:
+            # When output="tools", return the tool_calls list with outputs
+            # When output="text", return the last tool call output or message content
+            if "tool_calls" in result.get("message", {}):
+                if output == "tools":
+                    return tool_calls
+                else:
+                    return tool_calls[-1].get("output", result["message"]["content"])
+            return result["message"]["content"]
+
+
+def agent_run(role, task, tools=None, output="text", model=DEFAULT_MODEL):
+    """
+    Run an agent with a specific role and task.
+    
+    Parameters:
+    -----------
+    role : str
+        The system prompt defining the agent's role
+    task : str
+        The user message/task for the agent
+    tools : list, optional
+        List of tool metadata for function calling
+    output : str
+        Output format (default: "text")
+    model : str
+        Model to use (default: DEFAULT_MODEL)
+    
+    Returns:
+    --------
+    str
+        The agent's response
+    """
+    
+    # Define the messages to be sent to the agent
+    messages = [
+        {"role": "system", "content": role},
+        {"role": "user", "content": task}
+    ]
+    
+    # Run the agent
+    resp = agent(messages=messages, model=model, output=output, tools=tools)
+    return resp
+
+
+# 2. DATA CONVERSION FUNCTION ###################################
+
+def df_as_text(df):
+    """
+    Convert a pandas DataFrame to a markdown table string.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        The DataFrame to convert to text
+    
+    Returns:
+    --------
+    str
+        A markdown-formatted table string
+    """
+    
+    # Convert DataFrame to markdown table
+    # pandas to_markdown() method creates markdown tables
+    tab = df.to_markdown(index=False)
+    return tab
