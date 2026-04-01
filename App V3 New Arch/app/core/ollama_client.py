@@ -10,6 +10,7 @@ import requests
 
 from app.core import config
 from app.core import mcp_client
+from app.rag import settings as rag_settings
 
 
 def _post_chat(body: dict[str, Any]) -> dict[str, Any]:
@@ -58,6 +59,7 @@ def chat_text(
         "model": m,
         "messages": messages,
         "stream": False,
+        "options": {"temperature": rag_settings.OLLAMA_TEMPERATURE},
     }
     data = _post_chat(body)
     msg = data.get("message") or {}
@@ -84,6 +86,7 @@ def chat_with_tools(
             "messages": msgs,
             "tools": tools,
             "stream": False,
+            "options": {"temperature": rag_settings.OLLAMA_TEMPERATURE},
         }
         data = _post_chat(body)
         msg = data.get("message") or {}

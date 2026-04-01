@@ -13,6 +13,8 @@ from rank_bm25 import BM25Okapi
 
 from app.core.config import RAG_DATA_DIR
 
+logger = logging.getLogger(__name__)
+
 _STOP = {
     "the",
     "a",
@@ -132,6 +134,8 @@ def lookup_airport_chunks(code: str) -> list[dict[str, Any]]:
     if not chunk_ids:
         return []
 
+    chunk_ids.sort()
+
     rows, _ = _load_index()
     by_id = {str(c.get("chunk_id", "")): c for c in rows if c.get("chunk_id")}
     out: list[dict[str, Any]] = []
@@ -164,7 +168,14 @@ def search_reference(query: str, top_k: int = 5) -> list[dict[str, Any]]:
         return []
 
     scores = bm25.get_scores(q)
-    ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+    # Tie-break: descending score, then ascending chunk_id (stable vs corpus row order).
+    ranked = sorted(
+        range(len(scores)),
+        key=lambda i: (
+            -float(scores[i]),
+            str(rows[i].get("chunk_id", "") or f"__row_{i}__"),
+        ),
+    )[:top_k]
     out: list[dict[str, Any]] = []
     for i in ranked:
         r = dict(rows[i])

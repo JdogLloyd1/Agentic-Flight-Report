@@ -1,5 +1,6 @@
 # ingest.py
 # Build BM25 index: FAA PDF text (PyMuPDF) plus AFD airport index XML under airport_facilities/.
+# Ollama chat temperature for agents: see app/rag/settings.py (deploy-friendly).
 
 from __future__ import annotations
 
@@ -205,7 +206,10 @@ def ingest_pdfs(data_dir: Path | None = None, out_path: Path | None = None) -> P
         encoding="utf-8",
     )
 
-    pdfs: list[Path] = list(root.glob("*.pdf")) + list(af_dir.glob("*.pdf"))
+    pdfs = sorted(
+        list(root.glob("*.pdf")) + list(af_dir.glob("*.pdf")),
+        key=lambda p: p.as_posix().lower(),
+    )
 
     for pdf in pdfs:
         try:

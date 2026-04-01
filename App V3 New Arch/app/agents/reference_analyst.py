@@ -20,15 +20,20 @@ Output:
 
 
 def _default_queries(carrier: str, origin: str, destination: str) -> list[str]:
-    o = origin.strip().upper()
-    d = destination.strip().upper()
+    """carrier, origin, destination should already be normalized (strip + upper)."""
     return [
-        f"{o} ground delay program ground stop",
-        f"{d} IFR runway approach",
+        f"{origin} ground delay program ground stop",
+        f"{destination} IFR runway approach",
         "convective weather SIGMET ATC traffic management",
         "ground delay program GDP metering",
         f"{carrier} hub delay operations",
     ]
+
+
+def _merge_sort_key(h: dict) -> tuple[int, float, str]:
+    """Structured airport rows first, then higher BM25 score, then chunk_id."""
+    tier = 0 if h.get("retrieval") == "structured" else 1
+    return (tier, -float(h.get("score", 0.0)), str(h.get("chunk_id", "")))
 
 
 def run_reference_analyst(
@@ -41,31 +46,43 @@ def run_reference_analyst(
     extra_queries: list[str] | None = None,
 ) -> str:
     """Retrieve hybrid RAG chunks (structured airport index + BM25), then run the analyst LLM."""
-    seen: set[str] = set()
-    hits: list[dict] = []
-    for ap in (origin, destination):
-        code = ap.strip().upper()
-        if len(code) < 2:
-            continue
-        for h in lookup_airport_chunks(code):
-            cid = str(h.get("chunk_id", ""))
-            if cid and cid in seen:
-                continue
-            seen.add(cid)
-            hits.append(h)
+    carrier_n = carrier.strip().upper()
+    o = origin.strip().upper()
+    d = destination.strip().upper()
 
-    queries = list(extra_queries or []) + _default_queries(carrier, origin, destination)
+    by_id: dict[str, dict] = {}
+    for ap in (o, d):
+        if len(ap) < 2:
+            continue
+        for h in lookup_airport_chunks(ap):
+            cid = str(h.get("chunk_id", ""))
+            if not cid or cid in by_id:
+                continue
+            r = dict(h)
+            r["score"] = 1.0
+            r["retrieval"] = "structured"
+            by_id[cid] = r
+
+    queries = list(extra_queries or []) + _default_queries(carrier_n, o, d)
     for q in queries:
         for h in search_reference(q, top_k=4):
             cid = str(h.get("chunk_id", ""))
-            if cid and cid in seen:
+            if not cid:
                 continue
-            seen.add(cid)
-            hits.append(h)
-        if len(hits) >= 18:
-            break
+            sc = float(h.get("score", 0.0))
+            if cid in by_id and by_id[cid].get("retrieval") == "structured":
+                continue
+            if cid not in by_id:
+                nh = dict(h)
+                nh["retrieval"] = "bm25"
+                by_id[cid] = nh
+            elif sc > float(by_id[cid].get("score", 0.0)):
+                nh = dict(h)
+                nh["retrieval"] = "bm25"
+                by_id[cid] = nh
 
-    block = format_reference_hits(hits[:20])
+    merged = sorted(by_id.values(), key=_merge_sort_key)
+    block = format_reference_hits(merged[:20])
     task = (
         f"Flight: {carrier} {flight_number} on {flight_date} from {origin} to {destination}.\n\n"
         f"Reference excerpts (airport index + BM25):\n{block if block.strip() else '(No index — run: python -m app.rag.ingest from App V3 New Arch; place PDFs and/or airport_facilities/*.xml under app/rag/data.)'}"
