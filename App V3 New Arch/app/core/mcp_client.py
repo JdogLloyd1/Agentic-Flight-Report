@@ -79,7 +79,7 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> str:
 
 
 def list_tool_schemas() -> list[dict[str, Any]]:
-    """OpenAI-style tool schemas for Ollama (Agent 1)."""
-    from mcp_server.tools.registry import ALL_TOOL_SCHEMAS  # noqa: PLC0415
+    """OpenAI-style tool schemas for Ollama Agent 1 (subset: no OpenSky, url_query, or web_search_general)."""
+    from mcp_server.tools.registry import DEFAULT_AGENT_TOOL_SCHEMAS  # noqa: PLC0415
 
-    return list(ALL_TOOL_SCHEMAS)
+    return list(DEFAULT_AGENT_TOOL_SCHEMAS)

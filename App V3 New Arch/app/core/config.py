@@ -49,6 +49,9 @@ def validate_ollama_cloud_credentials() -> None:
 
 MCP_BASE_URL = (os.environ.get("MCP_BASE_URL") or "").strip().rstrip("/")
 
+# Optional JSON proxy for TSA wait times (legacy DHS MyTSA often redirects). See tsa_wait_times.py.
+TSA_WAIT_TIMES_PROXY_URL = (os.environ.get("TSA_WAIT_TIMES_PROXY_URL") or "").strip()
+
 # RAG: default to app/rag/data unless RAG_DATA_DIR is set
 _rag_default = Path(__file__).resolve().parent.parent / "rag" / "data"
 RAG_DATA_DIR = Path(os.environ.get("RAG_DATA_DIR") or _rag_default).resolve()

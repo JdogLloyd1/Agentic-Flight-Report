@@ -21,14 +21,6 @@ from . import (
 # 0. Tool implementations ############################################
 
 
-def _wrap_no_args(fn: Callable[[], str]) -> Callable[..., str]:
-    def _inner(**kwargs: Any) -> str:
-        del kwargs  # MCP may pass empty object; ignore
-        return fn()
-
-    return _inner
-
-
 TOOL_REGISTRY: dict[str, Callable[..., str]] = {
     "fetch_nasstatus_airport_status": faa_nasstatus.fetch_nasstatus_airport_status,
     "get_metar": aviation_weather.get_metar,
@@ -37,7 +29,7 @@ TOOL_REGISTRY: dict[str, Callable[..., str]] = {
     "get_gairmets": aviation_weather.get_gairmets,
     "get_pireps": aviation_weather.get_pireps,
     "get_weather_alerts": noaa_weather.get_weather_alerts,
-    "get_active_tfrs": _wrap_no_args(faa_tfr.get_active_tfrs),
+    "get_active_tfrs": faa_tfr.get_active_tfrs,
     "get_aircraft_states": opensky.get_aircraft_states,
     "get_tsa_wait_times": tsa_wait_times.get_tsa_wait_times,
     "url_query": web_search.url_query,
@@ -210,8 +202,24 @@ ALL_TOOL_SCHEMAS: list[dict[str, Any]] = [
     ),
     _fn(
         "get_active_tfrs",
-        "List active Temporary Flight Restrictions (best-effort from FAA public pages).",
-        {"type": "object", "properties": {}, "required": []},
+        (
+            "Active Temporary Flight Restrictions from FAA GeoServer WFS (same data as tfr.faa.gov). "
+            "Returns NOTAM key, title, state, legal; omit geometry by default."
+        ),
+        {
+            "type": "object",
+            "properties": {
+                "max_features": {
+                    "type": "integer",
+                    "description": "Max TFR features (1–500, default 300).",
+                },
+                "include_geometry": {
+                    "type": "boolean",
+                    "description": "If true, include GeoJSON geometry per feature (large payload).",
+                },
+            },
+            "required": [],
+        },
     ),
     _fn(
         "get_aircraft_states",
@@ -266,4 +274,19 @@ ALL_TOOL_SCHEMAS: list[dict[str, Any]] = [
             "required": ["query"],
         },
     ),
+]
+
+# Agent 1 (data collector) default: NAS/weather/TFR/TSA only — no OpenSky, page fetch, or web search.
+_AGENT_1_EXCLUDED_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "get_aircraft_states",
+        "url_query",
+        "web_search_general",
+    }
+)
+
+DEFAULT_AGENT_TOOL_SCHEMAS: list[dict[str, Any]] = [
+    s
+    for s in ALL_TOOL_SCHEMAS
+    if s.get("function", {}).get("name") not in _AGENT_1_EXCLUDED_TOOL_NAMES
 ]
