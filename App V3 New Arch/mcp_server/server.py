@@ -23,8 +23,10 @@ app = mcp.sse_app()
 
 
 def main() -> None:
-    """Run MCP over SSE (default path /sse depending on MCP version)."""
-    mcp.run(transport="sse", host="0.0.0.0", port=8765)
+    """Run MCP over SSE (path /sse; see FastMCP / uvicorn)."""
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8765)
 
 
 if __name__ == "__main__":

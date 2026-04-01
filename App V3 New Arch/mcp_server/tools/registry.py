@@ -22,7 +22,8 @@ from . import (
 
 
 def _wrap_no_args(fn: Callable[[], str]) -> Callable[..., str]:
-    def _inner(**_: Any) -> str:
+    def _inner(**kwargs: Any) -> str:
+        del kwargs  # MCP may pass empty object; ignore
         return fn()
 
     return _inner

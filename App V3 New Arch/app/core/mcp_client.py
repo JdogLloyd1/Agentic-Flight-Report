@@ -52,10 +52,30 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> str:
                         "detail": (r.text or "")[:800],
                     }
                 )
+            if not isinstance(body, dict):
+                return json.dumps(
+                    {
+                        "error": "mcp_bridge_unexpected_body",
+                        "detail": str(body)[:2000],
+                    }
+                )
+            if "result" not in body:
+                return json.dumps(
+                    {
+                        "error": "mcp_bridge_missing_result",
+                        "detail": str(body)[:2000],
+                    }
+                )
+            raw = body["result"]
+            if raw is None:
+                return json.dumps(
+                    {"error": "mcp_bridge_null_result", "detail": "Bridge returned null result."}
+                )
+            if isinstance(raw, str):
+                return raw
+            return json.dumps(raw)
     except httpx.RequestError as e:
         return json.dumps({"error": "mcp_bridge_connection_error", "detail": str(e)})
-
-    return str(body.get("result", body))
 
 
 def list_tool_schemas() -> list[dict[str, Any]]:

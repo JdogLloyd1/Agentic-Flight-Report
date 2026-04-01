@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -28,10 +30,56 @@ from app.agents.orchestrator import (
     run_agents_1_and_2,
 )
 
+
+def _parse_json_loose(s: str) -> Any | None:
+    """Parse Agent 1 output: raw JSON or optional ```-fenced block."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    lines = s.splitlines()
+    if len(lines) >= 2 and lines[0].strip().startswith("```"):
+        body = lines[1:]
+        while body and body[-1].strip() == "```":
+            body = body[:-1]
+        inner = "\n".join(body).strip()
+        try:
+            return json.loads(inner)
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def _render_agent1_json(raw: str):
+    """Pretty-print JSON for the Live data tab; fall back to monospace pre."""
+    parsed = _parse_json_loose(raw)
+    if parsed is not None:
+        text = json.dumps(parsed, indent=2, ensure_ascii=False)
+        return ui.tags.pre(text, class_="mb-0 small agent-json")
+    disp = (raw or "").strip()
+    if not disp:
+        return ui.p("(empty)", class_="text-muted mb-0")
+    return ui.tags.pre(disp, class_="mb-0 small agent-json")
+
+
 app_ui = ui.page_fluid(
     ui.tags.style(
         """
-        .agent-panel pre { white-space: pre-wrap; font-size: 0.9rem; max-height: 420px; overflow: auto; }
+        .agent-panel {
+            font-size: 0.9rem;
+            max-height: 420px;
+            overflow: auto;
+            padding: 0.5rem 0;
+        }
+        .agent-panel pre { white-space: pre-wrap; }
+        .agent-json {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
         .status-ok { color: #0a7; }
         .status-warn { color: #c60; }
         .workflow-panel {
@@ -52,7 +100,7 @@ app_ui = ui.page_fluid(
     ui.layout_columns(
         ui.input_text("carrier", "Carrier (IATA)", value="AA"),
         ui.input_text("flight_number", "Flight number", value="849"),
-        ui.input_text("flight_date", "Date (YYYY-MM-DD)", value="2026-03-31"),
+        ui.input_date("flight_date", "Flight date", value="2026-03-31"),
         ui.input_text("origin", "Origin (ICAO/IATA)", value="DFW"),
         ui.input_text("destination", "Destination", value="BOS"),
         col_widths=(2, 2, 2, 3, 3),
@@ -67,23 +115,23 @@ app_ui = ui.page_fluid(
     ui.navset_tab(
         ui.nav_panel(
             "Final report (Agent 4)",
-            ui.div(ui.output_text_verbatim("out_a4"), class_="agent-panel"),
-        ),
-        ui.nav_panel(
-            "Live data (Agent 1)",
-            ui.div(ui.output_text_verbatim("out_a1"), class_="agent-panel"),
-        ),
-        ui.nav_panel(
-            "Reference (Agent 2)",
-            ui.div(ui.output_text_verbatim("out_a2"), class_="agent-panel"),
+            ui.div(ui.output_ui("out_a4"), class_="agent-panel"),
         ),
         ui.nav_panel(
             "Synthesis (Agent 3)",
-            ui.div(ui.output_text_verbatim("out_a3"), class_="agent-panel"),
+            ui.div(ui.output_ui("out_a3"), class_="agent-panel"),
+        ),
+        ui.nav_panel(
+            "Reference (Agent 2)",
+            ui.div(ui.output_ui("out_a2"), class_="agent-panel"),
+        ),
+        ui.nav_panel(
+            "Live data (Agent 1)",
+            ui.div(ui.output_ui("out_a1"), class_="agent-panel"),
         ),
         ui.nav_panel(
             "Errors / trace",
-            ui.div(ui.output_text_verbatim("out_err"), class_="agent-panel"),
+            ui.div(ui.output_ui("out_err"), class_="agent-panel"),
         ),
     ),
 )
@@ -115,10 +163,15 @@ def server(input, output, session):
     def _start_workflow():
         if input.go() == 0:
             return
+        fd = input.flight_date()
+        if isinstance(fd, date):
+            flight_date_str = fd.isoformat()
+        else:
+            flight_date_str = (str(fd).strip() if fd is not None else "") or "2026-03-31"
         ctx = FlightContext(
             carrier=input.carrier().strip() or "AA",
             flight_number=input.flight_number().strip() or "1",
-            flight_date=input.flight_date().strip() or "2026-03-31",
+            flight_date=flight_date_str,
             origin=input.origin().strip() or "DFW",
             destination=input.destination().strip() or "BOS",
         )
@@ -221,32 +274,37 @@ def server(input, output, session):
             return ""
         return str(wf.get(key) or "")
 
-    @render.text
+    def _render_agent_markdown(text: str):
+        return ui.markdown(text or "")
+
+    @render.ui
     def out_a1():
-        return _safe_block("agent1_live")
+        return _render_agent1_json(_safe_block("agent1_live"))
 
-    @render.text
+    @render.ui
     def out_a2():
-        return _safe_block("agent2_reference")
+        return _render_agent_markdown(_safe_block("agent2_reference"))
 
-    @render.text
+    @render.ui
     def out_a3():
-        return _safe_block("agent3_synthesis")
+        return _render_agent_markdown(_safe_block("agent3_synthesis"))
 
-    @render.text
+    @render.ui
     def out_a4():
-        return _safe_block("agent4_report")
+        return _render_agent_markdown(_safe_block("agent4_report"))
 
-    @render.text
+    @render.ui
     def out_err():
         try:
             wf = workflow_task.result()
         except SilentException:
             raise
         except Exception as e:  # noqa: BLE001
-            return str(e)
-        errs = wf.get("errors") or []
-        return "\n".join(errs) if errs else "(no errors)"
+            body = str(e)
+        else:
+            errs = wf.get("errors") or []
+            body = "\n".join(errs) if errs else "(no errors)"
+        return _render_agent_markdown(body)
 
 
 app = App(app_ui, server)
