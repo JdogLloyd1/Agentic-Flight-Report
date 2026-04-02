@@ -13,14 +13,16 @@ Merge Live Data (Agent 1) with Reference Context (Agent 2). Clearly separate:
 - what is live operational data vs
 - what is background FAA reference material.
 
-Produce a structured plain-text report with sections:
+Produce a structured report with sections (use ## markdown headings and optional --- between sections).
+Do not use long rows of "=" characters as dividers—they break HTML layout; use "---" on its own line instead.
+
 1) NAS Status (FAA)
 2) Current Operational Weather (AWC / NWS)
 3) System-Level Delays and Cancellations (if inferable from data)
 4) Other Operational Factors (NOTAMs/TFR awareness, TSA, airline/airport issues if present)
 5) Network-Level Summary by Region and Hub — highlight top 3-5 impacted hubs if identifiable
 
-Be explicit when data is missing or uncertain."""
+Label live vs reference clearly (short tags in parentheses are fine). Be explicit when data is missing or uncertain."""
 
 
 def run_airspace_synthesizer(
