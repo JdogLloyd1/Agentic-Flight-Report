@@ -272,7 +272,7 @@ Agentic-Flight-Report/
 │   │   ├── opensky.py                 # get_aircraft_states (OpenSky Network ADS-B)
 │   │   ├── tsa_wait_times.py          # get_tsa_wait_times
 │   │   └── web_search.py             # url_query, web_search_general
-│   └── deploy.py                      # Posit Connect deployment script
+│   └── (see App V3 For Deployment/scripts/)  # rsconnect deploy fastapi — HTTP bridge
 │
 ├── app/                               # Main Shiny Application (deployed to Posit Connect)
 │   ├── app.py                         # Shiny for Python entry point
@@ -295,7 +295,7 @@ Agentic-Flight-Report/
 │   │   ├── ollama_client.py           # Ollama Cloud API client (from lab POC functions.py)
 │   │   ├── mcp_client.py             # MCP client to call tool server
 │   │   └── config.py                  # .env loading, constants
-│   └── deploy.py                      # Posit Connect deployment script
+│   └── (see App V3 For Deployment/scripts/)  # rsconnect deploy shiny
 │
 ├── screenshots/                       # Screenshots for README documentation
 ├── lab proof of concept/              # (preserved) Original lab POC
@@ -388,10 +388,7 @@ OPENSKY_CLIENT_SECRET=
 
 ## Deployment
 
-Both the MCP server and the Shiny app deploy to **Posit Connect** using `rsconnect-python` and the `POSIT_CONNECT_PUBLISHER` API key from `.env`.
-
-- **`mcp_server/deploy.py`** — deploys the MCP tool server as a FastAPI-wrapped SSE service.
-- **`app/deploy.py`** — deploys the Shiny app, configured to connect to the MCP server URL on Posit Connect.
+Both the MCP **HTTP tool bridge** (`mcp_server.http_bridge:app`, `POST /tools/call`) and the **Shiny** app deploy to **Posit Connect** using `rsconnect-python` and a publisher API key (`POSIT_CONNECT_PUBLISHER` or `CONNECT_API_KEY`) plus **`CONNECT_SERVER`** in `.env`. See **`App V3 For Deployment/scripts/deploy_mcp_http_bridge.py`** and **`App V3 For Deployment/scripts/deploy_shiny.py`**. For tools running in-process in the Shiny worker, omit a separate MCP deployment and leave `MCP_BASE_URL` unset.
 
 ---
 
