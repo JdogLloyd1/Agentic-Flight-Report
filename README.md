@@ -4,6 +4,11 @@ AI agentic workflow to describe the US airspace picture, causes of delays and ca
 
 ## App V3 (current build)
 
+**Live deployment (Cornell Systems / Posit Connect):**
+
+- **Shiny app:** [https://connect.systems-apps.com/connect/#/apps/e115a8d7-42c7-439d-9466-d1c8e698a9e8](https://connect.systems-apps.com/connect/#/apps/e115a8d7-42c7-439d-9466-d1c8e698a9e8)
+- **MCP server (HTTP bridge / Swagger):** [https://connect.systems-apps.com/content/07bcfaa3-9ce7-41bf-adfe-845083766c0e](https://connect.systems-apps.com/content/07bcfaa3-9ce7-41bf-adfe-845083766c0e)
+
 The stack is split into two folders:
 
 | Folder | Purpose |
