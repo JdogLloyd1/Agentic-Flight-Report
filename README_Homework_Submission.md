@@ -23,25 +23,24 @@
 
 ## 1. Overview
 
-*Replace everything in this subsection with **at least three paragraphs** you wrote yourself. The bullets are prompts; delete the bullets when you submit.*
+This Airspace Intelligence System takes inputs from the user pertaining to an upcoming flight (carrier, flight #, departing/arriving airports) and returns a concise summary of the risk of flight delay/cancellation based on factors like FAA ground stops, temporary flight restrictions, and nationwide aviation weather patterns. The app fills a gap in real-time communication for travelers affected by flight issues. I have personally experienced significant distress while flying over the past year due to poor communication from airlines about the causes of delays/cancellations and their likelihood of resolution. The primary impetus to develop this app came a couple weeks ago while working on one of this class's assignments in an airport hotel room at DFW due to a last minute flight cancellation. Significant storm systems around the country coupled with compounding delays and ground stops led to my second flight of the day getting delayed repeatedly and ultimately cancelled. A tool like this would have allowed me to understand these risks at the start of the day and take mitigation actions like packing toiletries in my backpack and not checking my carry-on; instead, I found myself stuck in an airline help desk queue trying to understand what was going on. Tools like FlightAware's MiseryMap are helpful to visualize airspace system disruptions, but they offer no information about root causes of disruptions, nor a direct application to my own flight's risk.
 
-- **What** does the system do for a user (inputs, outputs)?
-- **How** do Shiny, the orchestrator, the four agents, tools, RAG, and the LLM fit together?
-- **Design / challenges:** e.g. parallel Agents 1–2, BM25 vs embeddings, in-process tools vs `MCP_BASE_URL`, deployment tradeoffs.
+The overall app architecture uses an agent orchestrator to cue 4 different agents, including tool calls from an MCP server. The first agent calls API tools to compile available national airspace and weather data. The second agent runs in parallel and conducts BM25 keyword search-based RAG over FAA airport information repositories that have been pre-chunked. The third agent takes information from both the prior agents and builds a national airspace network synthesis; the fourth agent uses all prior inputs to build a personalized flight report. Results of all 4 agents are available for the user to view to trace the insights back to their data sources. 
 
-```text
-[PASTE YOUR PARAGRAPH 1 HERE]
+I had the most trouble with the RAG agent to ensure repeatable results. I had to adjust the hit count to ensure the RAG search would run through all the data available and in a repeatable order. Chunks are now managed by a standardized chunk_id, BM25 scores are maxed across queries, and results are sorted by scoring. API tool queries were straightforward for the most part. I set up the tools in a separate MCP server to get practice working with it; for this purpose, in-process tools could have been used. Indeed, not setting an MCP server URL will prompt the app to default to in-process tool calls. I also pursued deployment to Posit to enable beta testing by friends and family. 
 
-
-[PASTE YOUR PARAGRAPH 2 HERE]
-
-
-[PASTE YOUR PARAGRAPH 3 HERE]
-
-(Optional fourth paragraph: challenges, lessons learned, or future work.)
-```
-
----
+Potential Improvements for a Future Revision
+- Several beta testers reported the app takes way too long to run (on the order of 2-3 minutes) and can sometimes result in server timeout before getting a response.
+- One solution to the above could be to try a more lightweight model to be more mobile/ADHD-friendly 
+- Better types of recommendations that aren't just commmon sense. Information like "beware if you have a connection through DFW" would be valuable even if the flight queried did not mention that airport. 
+- Scrap the 4th agent if it is possible to bake in the personal aspect into the Agent 3 airspace synthesis.  
+- More attractive UI and some explanation text at the top of the display
+- Add back TSA wait times once that API works again
+- Find a free API to pull flight information just based on flight # and date to minimize human inputs needed
+- Find a free API to get "where is my plane?" information 
+- FAA RAG data is set up as a static PDF repository - could look into ways to automatically pipeline in new document revisions when they are released 
+- See if there is public information about historical on time data for a given flight number that could factor into Agent 4's risk score
+- Consider a low cost paid service instead of Ollama to get faster agent runtimes 
 
 ## 2. Git repository links 
 
