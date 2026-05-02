@@ -1,0 +1,9 @@
+httpx>=0.27.0
+pandas>=2.0.0
+python-dotenv>=1.0.0
+rank-bm25>=0.2.2
+requests>=2.31.0
+# Homework experiment / stats (Phases 2–4)
+scipy>=1.11.0
+pingouin>=0.5.4
+matplotlib>=3.8.0

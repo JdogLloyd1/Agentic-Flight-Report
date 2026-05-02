@@ -1,0 +1,14 @@
+{
+  "created_at_utc": "2026-04-28T00:43:40.799650+00:00",
+  "flight": {
+    "carrier": "AA",
+    "flight_number": "849",
+    "flight_date": "2026-04-27",
+    "origin": "DFW",
+    "destination": "BOS"
+  },
+  "model": null,
+  "errors": [],
+  "agent1_chars": 4441,
+  "agent2_chars": 1705
+}

@@ -1,0 +1,7 @@
+{
+  "created_at_utc": "2026-04-28T02:39:49.804515+00:00",
+  "n_per_prompt": 10,
+  "model": "qwen3.5:397b",
+  "rows_appended": 30,
+  "index_csv": "synthesis_runs\\index.csv"
+}

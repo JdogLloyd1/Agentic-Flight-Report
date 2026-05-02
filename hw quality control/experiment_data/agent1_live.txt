@@ -1,0 +1,37 @@
+{
+  "airports": {
+    "origin_icao": "KDFW",
+    "destination_icao": "KBOS"
+  },
+  "nas_status_faa": {
+    "status": "ok",
+    "summary": "DFW: Ground Stop Program active for thunderstorms until 8:15 pm CDT. Arrival/Departure delays 31-45 minutes, trend increasing, reason WX:Thunderstorms. Other GDPs: ORD (avg 3hr30min, max 10hr59min, thunderstorms), SDF (avg 49min, thunderstorms), SFO (avg 57min, other), MEM (avg 58min, thunderstorms). Airport closures: ASE (medical/SAR excepted), SAN (non-sked transient GA excepted), LAS (non-sked transient GA excepted).",
+    "tools_used": ["fetch_nasstatus_airport_status"]
+  },
+  "operational_weather_awc_nws": {
+    "status": "ok",
+    "origin_metar_taf": "KDFW METAR 272353Z: TS (thunderstorms), 10SM vis, SCT070CB SCT100 BKN250, 31/21C, A2973, VFR. TAF 272332Z: VCTS BKN040CB initially, then FM0130 SCT070 SCT200, FM1000 BKN016, FM1600 SCT030, FM2000 VCTS BKN040CB, FM0100 SCT040 BKN250. Winds 170-190° 8-18kt.",
+    "destination_metar_taf": "KBOS METAR 272354Z: CLR, 10SM vis, 11/03C, A3026, VFR. TAF 272343Z: Generally VFR throughout, FEW050 initially, then FM0300 FEW250, FM0700 SKC, FM1500 FEW250, FM0100 FEW140 BKN250. Winds 030-110° 5-12kt.",
+    "enroute_hazards_sigmet_gairmet_pirep": "SIGMETs: 7 convective SIGMETs active (82C TN/MS/AR, 17E OH/KY/IN with tornadoes/hail 1.25in/wind 50kt, 18E FL coastal waters, 78C WI/IL/MN/IA, 79C KY/IN/IL/MO with tornadoes/hail 1.25in/wind 60kt, 80C IL/MO/AR with tornadoes/hail 2.0in/wind 50kt, 81C AR/TX/OK with hail 1.0in/wind 50kt). G-AIRMETs: IFR conditions (cig/blw 010, vis/blw 3SM) in multiple areas including Rockies/Upper Midwest; MT_OBSC in Rockies/Pacific NW; MOD TURB-LO 080-SFC over Appalachians; LLWS areas. PIREPs KDFW area: Multiple MOD turbulence reports (FL075-FL380), TS/GR/RA reports, one B738 wind gain 10kt. PIREPs KBOS area: UAL310 FL350 MOD TB, A332 FL370 OCNL LGT TB, UAL120 FL290 CONT LGT TB.",
+    "nws_alerts": "TX: Multiple Severe Thunderstorm Warnings active for Collin, Hunt, Dallas counties (60 mph wind gusts, quarter to golf ball size hail, until 8:00-8:15 PM CDT). MA: No active alerts.",
+    "tools_used": ["get_metar", "get_taf", "get_sigmets", "get_gairmets", "get_pireps", "get_weather_alerts"]
+  },
+  "system_level_delays_cancellations": {
+    "status": "partial",
+    "summary": "No system-wide delay/cancellation tool available. NASSTATUS shows airport-specific programs: DFW ground stop and 31-45min delays; ORD 3hr30min avg GDP; SDF 49min avg; SFO 57min avg; MEM 58min avg. System-level impact inference limited to NASSTATUS airport data.",
+    "tools_used": ["fetch_nasstatus_airport_status"]
+  },
+  "other_operational_factors": {
+    "status": "partial",
+    "tfr": "82 active TFRs retrieved. Notable near route/terminals: DALLAS TX VIP TFR (9/2934-1-FDC-F, legacy); multiple Cape Canaveral FL space operations TFRs Apr 27-May 1; Houston/Florence/San Antonio TX security TFRs Apr 28-30; New York/Flushing NY security TFRs Apr 29. No TFRs directly over DFW or BOS identified in current dataset.",
+    "tsa_departure": "TSA wait times for DFW unavailable - MyTSA API returned HTTP 302 redirect instead of JSON. API consolidation noted; programmatic access may require proxy or mobile app.",
+    "supplemental_web": "",
+    "tools_used": ["get_active_tfrs", "get_tsa_wait_times"]
+  },
+  "network_summary_hubs": {
+    "status": "ok",
+    "impacted_hubs_notes": "Major impacted hubs from NASSTATUS: ORD (Chicago) - GDP 3hr30min avg, 10hr59min max, thunderstorms; DFW (Dallas) - Ground Stop until 8:15pm CDT plus 31-45min delays increasing, thunderstorms; SFO (San Francisco) - GDP 57min avg, other reason; MEM (Memphis) - GDP 58min avg, thunderstorms; SDF (Louisville) - GDP 49min avg, thunderstorms. Thunderstorm activity concentrated in central US affecting multiple hubs.",
+    "tools_used": ["fetch_nasstatus_airport_status"]
+  },
+  "data_gaps_and_limitations": "TSA wait times unavailable due to MyTSA API redirect (HTTP 302). No dedicated system-wide cancellations tool - only airport-specific NASSTATUS data. TFR geometry omitted (include_geometry=false) so precise route intersection analysis not possible. Enroute weather hazards from SIGMETs/G-AIRMETs are area-based; specific DFW-BOS corridor conditions inferred from overlapping hazard areas. Flight date 2026-04-27 is in the future relative to tool data timestamps (Apr 27-28, 2026); data represents near-real-time conditions at query time."
+}
